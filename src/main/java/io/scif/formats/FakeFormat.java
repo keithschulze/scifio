@@ -63,8 +63,8 @@ import net.imglib2.display.ColorTable8;
 import org.scijava.Priority;
 import org.scijava.io.DataHandle;
 import org.scijava.io.DataHandleService;
-import org.scijava.io.FileLocation;
 import org.scijava.io.Location;
+import org.scijava.io.handles.FileLocation;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
 import org.scijava.util.Bytes;
@@ -733,7 +733,7 @@ public class FakeFormat extends AbstractFormat {
 		{
 			final Location loc = new FileLocation(fakePath);
 
-			File f = new File((loc.getURI()));
+			File f = new File(loc.getURI());
 			if (f.exists()) {
 				fakePath = f.getAbsoluteFile().getName();
 			}
