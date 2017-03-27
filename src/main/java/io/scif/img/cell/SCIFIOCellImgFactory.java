@@ -7,13 +7,13 @@
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -105,12 +105,12 @@ public final class SCIFIOCellImgFactory<T extends NativeType<T>> extends
 	}
 
 	@Override
-	public
-		SCIFIOCellImg<T, ShortArray, SCIFIOCell<ShortArray>>
-		createShortInstance(final long[] dimensions, final Fraction entitiesPerPixel)
+	public SCIFIOCellImg<T, ShortArray, SCIFIOCell<ShortArray>>
+		createShortInstance(final long[] dimensions,
+			final Fraction entitiesPerPixel)
 	{
-		return createInstance(new ShortArrayLoader(reader(), subregion),
-			dimensions, entitiesPerPixel);
+		return createInstance(new ShortArrayLoader(reader(), subregion), dimensions,
+			entitiesPerPixel);
 	}
 
 	@Override
@@ -130,12 +130,12 @@ public final class SCIFIOCellImgFactory<T extends NativeType<T>> extends
 	}
 
 	@Override
-	public
-		SCIFIOCellImg<T, FloatArray, SCIFIOCell<FloatArray>>
-		createFloatInstance(final long[] dimensions, final Fraction entitiesPerPixel)
+	public SCIFIOCellImg<T, FloatArray, SCIFIOCell<FloatArray>>
+		createFloatInstance(final long[] dimensions,
+			final Fraction entitiesPerPixel)
 	{
-		return createInstance(new FloatArrayLoader(reader(), subregion),
-			dimensions, entitiesPerPixel);
+		return createInstance(new FloatArrayLoader(reader(), subregion), dimensions,
+			entitiesPerPixel);
 	}
 
 	@Override
@@ -152,8 +152,8 @@ public final class SCIFIOCellImgFactory<T extends NativeType<T>> extends
 	public SCIFIOCellImg<T, ?, ?> create(final long[] dim, final T type) {
 		if (reader == null) {
 			throw new IllegalStateException(
-				"Tried to create a new SCIFIOCellImg without a Reader to "
-					+ "use for opening planes.\nCall setReader(Reader) before invoking create()");
+				"Tried to create a new SCIFIOCellImg without a Reader to " +
+					"use for opening planes.\nCall setReader(Reader) before invoking create()");
 		}
 		return (SCIFIOCellImg<T, ?, ?>) type.createSuitableNativeImg(this, dim);
 	}
@@ -166,8 +166,7 @@ public final class SCIFIOCellImgFactory<T extends NativeType<T>> extends
 		if (NativeType.class.isInstance(type)) return new SCIFIOCellImgFactory(
 			defaultCellDimensions);
 		throw new IncompatibleTypeException(this, type.getClass()
-			.getCanonicalName() +
-			" does not implement NativeType.");
+			.getCanonicalName() + " does not implement NativeType.");
 	}
 
 	/**
@@ -189,9 +188,8 @@ public final class SCIFIOCellImgFactory<T extends NativeType<T>> extends
 
 		if (r instanceof ReaderFilter) r = ((ReaderFilter) r).getTail();
 
-		defaultCellDimensions =
-			new int[] { (int) reader.getOptimalTileWidth(imageIndex),
-				(int) reader.getOptimalTileHeight(imageIndex), 1, 1, 1 };
+		defaultCellDimensions = new int[] { (int) reader.getOptimalTileWidth(
+			imageIndex), (int) reader.getOptimalTileHeight(imageIndex), 1, 1, 1 };
 	}
 
 	/**
@@ -213,12 +211,11 @@ public final class SCIFIOCellImgFactory<T extends NativeType<T>> extends
 
 		loader.setIndex(index);
 
-		final SCIFIOCellCache<A> c =
-			new SCIFIOCellCache<>(reader.getContext(), loader);
+		final SCIFIOCellCache<A> c = new SCIFIOCellCache<>(reader.getContext(),
+			loader);
 
-		final SCIFIOCellImg<T, A, SCIFIOCell<A>> cellImg =
-			new SCIFIOCellImg<>(this, new SCIFIOImgCells<>(c,
-				entitiesPerPixel, dimensions, cellSize));
+		final SCIFIOCellImg<T, A, SCIFIOCell<A>> cellImg = new SCIFIOCellImg<>(this,
+			new SCIFIOImgCells<>(c, entitiesPerPixel, dimensions, cellSize));
 
 		cellImg.setLoader(loader);
 
