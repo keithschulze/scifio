@@ -116,6 +116,7 @@ Wisconsin-Madison</license.copyrightOwners>
 		<license.projectName>SCIFIO library for reading and converting scientific file formats.</license.projectName>
 
 		<mapdb.version>1.0.3</mapdb.version>
+		<scijava-common.version>2.62.2-SNAPSHOT</scijava-common.version>
 	</properties>
 
 	<repositories>
