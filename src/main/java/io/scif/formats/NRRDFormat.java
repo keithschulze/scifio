@@ -42,7 +42,6 @@ import io.scif.ImageMetadata;
 import io.scif.MetadataLevel;
 import io.scif.UnsupportedCompressionException;
 import io.scif.config.SCIFIOConfig;
-import io.scif.io.Location;
 import io.scif.io.RandomAccessInputStream;
 import io.scif.services.FormatService;
 import io.scif.util.FormatTools;
@@ -52,6 +51,8 @@ import java.io.IOException;
 
 import net.imagej.axis.Axes;
 
+import org.scijava.io.DataHandle;
+import org.scijava.io.Location;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
 
@@ -74,8 +75,8 @@ public class NRRDFormat extends AbstractFormat {
 
 		// -- Fields --
 
-		/** Name of data file, if the current extension is 'nhdr'. */
-		private String dataFile;
+		/** Location of data file, if the current extension is 'nhdr'. */
+		private Location dataFile;
 
 		/** Data encoding. */
 		private String encoding;
@@ -102,11 +103,11 @@ public class NRRDFormat extends AbstractFormat {
 			return helper;
 		}
 
-		public String getDataFile() {
+		public Location getDataFile() {
 			return dataFile;
 		}
 
-		public void setDataFile(final String dataFile) {
+		public void setDataFile(final Location dataFile) {
 			this.dataFile = dataFile;
 		}
 
@@ -169,7 +170,8 @@ public class NRRDFormat extends AbstractFormat {
 		public void close(final boolean fileOnly) throws IOException {
 			super.close(fileOnly);
 			if (!fileOnly) {
-				dataFile = encoding = null;
+				dataFile = null;
+				encoding = null;
 				offset = 0;
 				pixelSizes = null;
 				initializeHelper = false;
@@ -187,7 +189,7 @@ public class NRRDFormat extends AbstractFormat {
 		// -- Checker API Methods --
 
 		@Override
-		public boolean isFormat(String name, final SCIFIOConfig config) {
+		public boolean isFormat(Location name, final SCIFIOConfig config) {
 			if (super.isFormat(name, config)) return true;
 			if (!config.checkerIsOpen()) return false;
 
@@ -206,7 +208,7 @@ public class NRRDFormat extends AbstractFormat {
 		}
 
 		@Override
-		public boolean isFormat(final RandomAccessInputStream stream)
+		public boolean isFormat(final DataHandle<Location> stream)
 			throws IOException
 		{
 			final int blockLen = NRRD_MAGIC_STRING.length();
@@ -223,27 +225,26 @@ public class NRRDFormat extends AbstractFormat {
 		// -- Parser API Methods --
 
 		@Override
-		public String[] getImageUsedFiles(final int imageIndex,
+		public Location[] getImageUsedFiles(final int imageIndex,
 			final boolean noPixels)
 		{
 			FormatTools.assertId(getSource(), true, 1);
 			if (noPixels) {
 				if (getMetadata().getDataFile() == null) return null;
-				return new String[] { getSource().getFileName() };
+				return new Location[] { getSource().get() };
 			}
-			if (getMetadata().getDataFile() == null) return new String[] { getSource()
-				.getFileName() };
-			return new String[] { getSource().getFileName(), getMetadata()
-				.getDataFile() };
+			if (getMetadata().getDataFile() == null) return new Location[] {
+				getSource().get() };
+			return new Location[] { getSource().get(), getMetadata().getDataFile() };
 		}
 
 		// -- Abstract Parser API Methods --
 
 		@Override
-		public Metadata parse(RandomAccessInputStream stream, final Metadata meta)
+		public Metadata parse(DataHandle<Location> stream, final Metadata meta)
 			throws IOException, FormatException
 		{
-			String id = stream.getFileName();
+			String id = stream.get().getName();
 
 			// make sure we actually have the .nrrd/.nhdr file
 			if (!FormatTools.checkSuffix(id, "nhdr") && !FormatTools.checkSuffix(id,
@@ -266,7 +267,7 @@ public class NRRDFormat extends AbstractFormat {
 		}
 
 		@Override
-		protected void typedParse(final RandomAccessInputStream stream,
+		protected void typedParse(final DataHandle<Location> stream,
 			final Metadata meta, final SCIFIOConfig config) throws IOException,
 			FormatException
 		{
@@ -356,28 +357,27 @@ public class NRRDFormat extends AbstractFormat {
 
 			// nrrd files store pixel data in addition to metadata
 			// nhdr files don't store pixel data, but instead provide a path to
-			// the
-			// pixels file (this can be any format)
+			// the pixels file (this can be any format)
 
-			if (meta.getDataFile() == null) meta.setOffset(stream.getFilePointer());
+			if (meta.getDataFile() == null) meta.setOffset(stream.offset());
 			else {
 				final Location f = new Location(getContext(), getSource().getFileName())
 					.getAbsoluteFile();
 				final Location parent = f.getParentFile();
 				if (f.exists() && parent != null) {
-					String dataFile = meta.getDataFile();
+					Location dataFile = meta.getDataFile();
 					dataFile = dataFile.substring(dataFile.indexOf(File.separator) + 1);
 					dataFile = new Location(getContext(), parent, dataFile)
 						.getAbsolutePath();
+					// TODO I think is missing here:
+//					meta.setDataFile(dataFile);
 				}
 				meta.setInitializeHelper(!meta.getEncoding().equals("raw"));
 			}
 
 			if (meta.isInitializeHelper()) {
 				// Find the highest priority non-NRRD format that can support
-				// the
-				// current
-				// image and cache it as a helper
+				// the current image and cache it as a helper
 				final NRRDFormat nrrd = formatService.getFormatFromClass(
 					NRRDFormat.class);
 				formatService.removeFormat(nrrd);
