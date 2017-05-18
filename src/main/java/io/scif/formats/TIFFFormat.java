@@ -53,7 +53,6 @@ import io.scif.formats.tiff.TiffParser;
 import io.scif.formats.tiff.TiffRational;
 import io.scif.formats.tiff.TiffSaver;
 import io.scif.gui.AWTImageTools;
-import io.scif.io.Location;
 import io.scif.io.RandomAccessInputStream;
 import io.scif.io.RandomAccessOutputStream;
 import io.scif.util.FormatTools;
@@ -64,6 +63,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.function.Function;
@@ -76,6 +76,8 @@ import net.imagej.axis.DefaultLinearAxis;
 import net.imglib2.display.ColorTable;
 import net.imglib2.display.ColorTable8;
 
+import org.scijava.io.DataHandle;
+import org.scijava.io.Location;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
 import org.scijava.util.StringUtils;
@@ -126,7 +128,7 @@ public class TIFFFormat extends AbstractFormat {
 
 		private String imageDescription;
 
-		private String companionFile;
+		private Location companionFile;
 
 		private String description;
 
@@ -142,11 +144,11 @@ public class TIFFFormat extends AbstractFormat {
 
 		// -- TIFFMetadata getters and setters --
 
-		public String getCompanionFile() {
+		public Location getCompanionFile() {
 			return companionFile;
 		}
 
-		public void setCompanionFile(final String companionFile) {
+		public void setCompanionFile(final Location companionFile) {
 			this.companionFile = companionFile;
 		}
 
@@ -360,16 +362,16 @@ public class TIFFFormat extends AbstractFormat {
 		// -- Parser API Methods --
 
 		@Override
-		public String[] getImageUsedFiles(final int ImageIndex,
+		public Location[] getImageUsedFiles(final int ImageIndex,
 			final boolean noPixels)
 		{
 			if (noPixels) {
-				return getMetadata().getCompanionFile() == null ? null : new String[] {
-					getMetadata().getCompanionFile() };
+				return getMetadata().getCompanionFile() == null ? null
+					: new Location[] { getMetadata().getCompanionFile() };
 			}
-			if (getMetadata().getCompanionFile() != null) return new String[] {
-				getMetadata().getCompanionFile(), getSource().getFileName() };
-			return new String[] { getSource().getFileName() };
+			if (getMetadata().getCompanionFile() != null) return new Location[] {
+				getMetadata().getCompanionFile(), getSource().get() };
+			return new Location[] { getSource().get() };
 		}
 
 		// -- BaseTIFFParser API Methods
@@ -406,8 +408,8 @@ public class TIFFFormat extends AbstractFormat {
 								metadata = "<root>" + xmlService.sanitizeXML(metadata) +
 									"</root>";
 								try {
-									final Hashtable<String, String> xmlMetadata = xmlService
-										.parseXML(metadata);
+									final Map<String, String> xmlMetadata = xmlService.parseXML(
+										metadata);
 									for (final String key : xmlMetadata.keySet()) {
 										table.put(key, xmlMetadata.get(key));
 									}
@@ -457,23 +459,25 @@ public class TIFFFormat extends AbstractFormat {
 
 			// check for another file with the same name
 			if (config.groupableIsGroupFiles()) {
-				final Location currentFile = new Location(getContext(), getSource()
-					.getFileName()).getAbsoluteFile();
+//				final Location currentFile = new Location(getContext(), getSource()
+//					.getFileName()).getAbsoluteFile();
+				Location currentFile = getSource().get();
 				final String currentName = currentFile.getName();
-				final Location directory = currentFile.getParentFile();
-				final String[] files = directory.list(true);
-				if (files != null) {
-					for (final String file : files) {
-						String name = file;
+				final Location directory = currentFile.getParent();
+				final Set<Location> files = directory.getChildren();
+				if (!files.isEmpty()) {
+					for (final Location file : files) {
+						String name = file.getName();
+
+						// FIXME This logic is too crude
 						if (name.contains(".")) {
 							name = name.substring(0, name.indexOf("."));
 						}
 
-						if (currentName.startsWith(name) && FormatTools.checkSuffix(name,
-							COMPANION_SUFFIXES))
+						if (currentName.startsWith(name) && FormatTools.checkSuffix(file
+							.getName(), COMPANION_SUFFIXES))
 						{
-							meta.setCompanionFile(new Location(getContext(), directory, file)
-								.getAbsolutePath());
+							meta.setCompanionFile(file);
 							break;
 						}
 					}
@@ -948,7 +952,7 @@ public class TIFFFormat extends AbstractFormat {
 		// -- Parser API Methods --
 
 		@Override
-		protected void typedParse(final RandomAccessInputStream stream,
+		protected void typedParse(final DataHandle<Location> stream,
 			final Metadata meta, final SCIFIOConfig config) throws IOException,
 			FormatException
 		{
@@ -1460,9 +1464,8 @@ public class TIFFFormat extends AbstractFormat {
 		// -- Writer API Methods --
 
 		@Override
-		public void setDest(final RandomAccessOutputStream dest,
-			final int imageIndex, final SCIFIOConfig config) throws FormatException,
-			IOException
+		public void setDest(final DataHandle<Location> dest, final int imageIndex,
+			final SCIFIOConfig config) throws FormatException, IOException
 		{
 			super.setDest(dest, imageIndex, config);
 			synchronized (this) {
@@ -1502,8 +1505,8 @@ public class TIFFFormat extends AbstractFormat {
 		{
 			IFD ifd = new IFD(log());
 			if (!writeSequential()) {
-				final TiffParser parser = new TiffParser(getContext(), getMetadata()
-					.getDatasetName());
+				final TiffParser parser = new TiffParser(getContext(), getHandle()
+					.get());
 				try {
 					final long[] ifdOffsets = parser.getIFDOffsets();
 					if (planeIndex < ifdOffsets.length) {
@@ -1511,9 +1514,9 @@ public class TIFFFormat extends AbstractFormat {
 					}
 				}
 				finally {
-					final RandomAccessInputStream tiffParserStream = parser.getStream();
-					if (tiffParserStream != null) {
-						tiffParserStream.close();
+					DataHandle<Location> tiffHandle = parser.getStream();
+					if (tiffHandle != null) {
+						tiffHandle.close();
 					}
 				}
 			}
@@ -1574,9 +1577,8 @@ public class TIFFFormat extends AbstractFormat {
 					compressType = TiffCompression.JPEG;
 				}
 			}
-			final Object v = ifd.get(new Integer(IFD.COMPRESSION));
-			if (v == null) ifd.put(new Integer(IFD.COMPRESSION), compressType
-				.getCode());
+			final Object v = ifd.get(IFD.COMPRESSION);
+			if (v == null) ifd.put(IFD.COMPRESSION, compressType.getCode());
 		}
 
 		/**
@@ -1634,7 +1636,7 @@ public class TIFFFormat extends AbstractFormat {
 				10000), 1000));
 
 			if (!isBigTiff()) {
-				isBigTIFF = (getStream().length() + 2 * (width * height * c *
+				isBigTIFF = (getHandle().length() + 2 * (width * height * c *
 					bytesPerPixel)) >= 4294967296L;
 				if (isBigTiff()) {
 					throw new FormatException(
@@ -1645,13 +1647,13 @@ public class TIFFFormat extends AbstractFormat {
 			}
 
 			// write the image
-			ifd.put(new Integer(IFD.LITTLE_ENDIAN), Boolean.valueOf(littleEndian));
+			ifd.put(IFD.LITTLE_ENDIAN, littleEndian);
 			if (!ifd.containsKey(IFD.REUSE)) {
-				ifd.put(IFD.REUSE, getStream().length());
-				getStream().seek(getStream().length());
+				ifd.put(IFD.REUSE, getHandle().length());
+				getHandle().seek(getHandle().length());
 			}
 			else {
-				getStream().seek((Long) ifd.get(IFD.REUSE));
+				getHandle().seek((Long) ifd.get(IFD.REUSE));
 			}
 
 			ifd.putIFDValue(IFD.PLANAR_CONFIGURATION, interleaved || meta.get(
@@ -1670,11 +1672,11 @@ public class TIFFFormat extends AbstractFormat {
 			return index;
 		}
 
-		private void setupTiffSaver(final RandomAccessOutputStream stream,
+		private void setupTiffSaver(final DataHandle<Location> handle,
 			final int imageIndex)
 		{
 			final Metadata meta = getMetadata();
-			tiffSaver = new TiffSaver(getContext(), stream, meta.getDatasetName());
+			tiffSaver = new TiffSaver(getContext(), handle);
 
 			final Boolean bigEndian = !meta.get(imageIndex).isLittleEndian();
 			final boolean littleEndian = !bigEndian.booleanValue();
